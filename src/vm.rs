@@ -115,6 +115,7 @@ impl VirtualMachine {
             IoIn(addr, data) => println!("io in {addr:x} {data:02x?}"),
             IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
             Hlt => return Ok(true),
+            Debug(_) => {}
             r => anyhow::bail!("Unexpected exit: {r:?}"),
         }
         Ok(false)
