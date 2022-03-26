@@ -1,12 +1,21 @@
 use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
+use std::sync::Arc;
 
 use anyhow::Result;
-use itertools::Itertools;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
 use memmap2::MmapMut;
+
+fn u32_from_le_bytes(b: &[u8]) -> u32 {
+    let mut v = [0, 0, 0, 0];
+    v[..b.len()].copy_from_slice(b);
+    u32::from_le_bytes(v)
+}
+
+mod timer;
+use timer::Timer;
 
 #[allow(dead_code)]
 pub struct VirtualMachine {
@@ -20,6 +29,8 @@ pub struct VirtualMachine {
 
     keyboard_buffer: VecDeque<u8>,
     keyboard_rx: Receiver<u8>,
+
+    timer: Arc<Timer>,
 }
 
 impl VirtualMachine {
@@ -45,6 +56,9 @@ impl VirtualMachine {
         let (keyboard_tx, keyboard_rx) = sync_channel(512);
         std::thread::spawn(move || handle_stdin(keyboard_tx));
 
+        let timer = Arc::new(Timer::default());
+        timer.launch();
+
         Ok(Self {
             kvm_fd,
             vm_fd,
@@ -53,6 +67,7 @@ impl VirtualMachine {
             console_buffer: Vec::new(),
             keyboard_buffer: VecDeque::new(),
             keyboard_rx,
+            timer,
         })
     }
 
@@ -80,6 +95,11 @@ impl VirtualMachine {
 
             IoIn(0x0045, data) => data[0] = !self.keyboard_buffer.is_empty() as u8,
             IoOut(0x0045, [0, ..]) => drop(self.keyboard_buffer.pop_front()),
+
+            IoOut(0x0046, data) => self.timer.set_interval(u32_from_le_bytes(data)),
+
+            IoIn(0x0047, data) => data[0] = self.timer.flags(),
+            IoOut(0x0047, [val, ..]) => self.timer.set_flags(*val),
 
             IoIn(addr, data) => println!("io in {addr:x} {data:02x?}"),
             IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
