@@ -3,10 +3,12 @@ use std::io::{Read, Write};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
 use memmap2::MmapMut;
+use object::read::{File as ObjectFile, Object, ObjectSection};
+use object::SectionKind;
 
 use crate::timer::Timer;
 
@@ -27,24 +29,40 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn new(mem_size: usize, guest_phys_addr: u64, code: &[u8]) -> Result<Self> {
+    pub fn new(mem_size: usize, obj: ObjectFile<'_>) -> Result<Self> {
         let kvm_fd = Kvm::new()?;
         let vm_fd = kvm_fd.create_vm()?;
 
         let mut guest_mem = MmapMut::map_anon(mem_size)?;
-        guest_mem[..code.len()].copy_from_slice(code);
+        for section in obj.sections() {
+            match section.kind() {
+                SectionKind::Text => {
+                    let data = section
+                        .compressed_data()
+                        .map_err(|e| anyhow!("failed to get data: {e}"))?
+                        .decompress()
+                        .map_err(|e| anyhow!("failed to decompress data: {e}"))?;
+
+                    let addr = section.address() as usize;
+                    let size = section.size() as usize;
+                    guest_mem[dbg!(addr)..][..dbg!(size)].copy_from_slice(&data);
+                }
+                SectionKind::Metadata | SectionKind::Note => (),
+                k => anyhow::bail!("Unsupported section kind: {k:?}"),
+            }
+        }
 
         let mem_region = kvm_userspace_memory_region {
             slot: 0,
             flags: Default::default(),
-            guest_phys_addr,
+            guest_phys_addr: 0,
             memory_size: mem_size as u64,
             userspace_addr: guest_mem.as_mut_ptr() as u64,
         };
         unsafe { vm_fd.set_user_memory_region(mem_region)? };
 
         let vcpu_fd = vm_fd.create_vcpu(0)?;
-        setup_regs(&vcpu_fd, guest_phys_addr)?;
+        setup_regs(&vcpu_fd, dbg!(obj.entry()))?;
 
         let (keyboard_tx, keyboard_rx) = sync_channel(512);
         std::thread::spawn(move || handle_stdin(keyboard_tx));

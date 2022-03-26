@@ -1,23 +1,26 @@
 mod timer;
 mod vm;
 
-use anyhow::Result;
+use std::path::PathBuf;
+
+use anyhow::{anyhow, Result};
+use clap::Parser;
 
 use vm::VirtualMachine;
 
-fn main() -> Result<()> {
-    #[rustfmt::skip]
-    let asm_code = [
-        0xba, 0x42, 0x00, // mov $0x0042, %dx
-        0x00, 0xd8,       // add %bl, %al
-        0x04, b'0',       // add $'0', %al
-        0xee,             // out %al, (%dx)
-        0xb0, b'\n',      // mov $'\n', %al
-        0xee,             // out %al, (%dx)
-        0xf4,             // hlt
-    ];
+#[derive(Parser)]
+struct Args {
+    code_file: PathBuf,
+}
 
-    let vm = VirtualMachine::new(0x4000, 0x1000, &asm_code)?;
+fn main() -> Result<()> {
+    let args = Args::parse();
+
+    let data = std::fs::read(&args.code_file)?;
+    let obj = object::read::File::parse(&data[..])
+        .map_err(|e| anyhow!("failed to parse object file: {e}"))?;
+
+    let vm = VirtualMachine::new(0x4000, obj)?;
     vm.run_to_completion()?;
 
     Ok(())
