@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use anyhow::Result;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
@@ -10,6 +12,8 @@ pub struct VirtualMachine {
     vcpu_fd: VcpuFd,
 
     guest_mem: MmapMut,
+
+    console_buffer: Vec<u8>,
 }
 
 impl VirtualMachine {
@@ -37,22 +41,27 @@ impl VirtualMachine {
             vm_fd,
             vcpu_fd,
             guest_mem,
+            console_buffer: Vec::new(),
         })
     }
 
-    pub fn run_to_completion(self) -> Result<()> {
-        loop {
-            let vm_exit = self.vcpu_fd.run()?;
-            let done = self.handle_exit(vm_exit)?;
-            if done {
-                break;
-            }
-        }
+    pub fn run_to_completion(mut self) -> Result<()> {
+        while !self.run_once()? {}
         Ok(())
     }
 
-    fn handle_exit(&self, exit: VcpuExit) -> Result<bool> {
-        match exit {
+    fn run_once(&mut self) -> Result<bool> {
+        let vm_exit = self.vcpu_fd.run()?;
+        match vm_exit {
+            VcpuExit::IoOut(0x0042, data) => {
+                for &byte in data {
+                    self.console_buffer.push(byte);
+                    if byte == b'\n' {
+                        std::io::stdout().write(&self.console_buffer)?;
+                        self.console_buffer.clear();
+                    }
+                }
+            }
             VcpuExit::IoIn(addr, data) => println!("io in {addr:x} {data:02x?}"),
             VcpuExit::IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
             VcpuExit::Hlt => return Ok(true),
@@ -65,7 +74,7 @@ impl VirtualMachine {
 fn main() -> Result<()> {
     #[rustfmt::skip]
     let asm_code = [
-        0xba, 0xf8, 0x03, // mov $0x3f8, %dx
+        0xba, 0x42, 0x00, // mov $0x0042, %dx
         0x00, 0xd8,       // add %bl, %al
         0x04, b'0',       // add $'0', %al
         0xee,             // out %al, (%dx)
