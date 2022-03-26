@@ -45,7 +45,7 @@ impl VirtualMachine {
 
                     let addr = section.address() as usize;
                     let size = section.size() as usize;
-                    guest_mem[dbg!(addr)..][..dbg!(size)].copy_from_slice(&data);
+                    guest_mem[addr..][..size].copy_from_slice(&data);
                 }
                 SectionKind::Metadata | SectionKind::Note => (),
                 k => anyhow::bail!("Unsupported section kind: {k:?}"),
@@ -62,7 +62,7 @@ impl VirtualMachine {
         unsafe { vm_fd.set_user_memory_region(mem_region)? };
 
         let vcpu_fd = vm_fd.create_vcpu(0)?;
-        setup_regs(&vcpu_fd, dbg!(obj.entry()))?;
+        setup_regs(&vcpu_fd, obj.entry())?;
 
         let (keyboard_tx, keyboard_rx) = sync_channel(512);
         std::thread::spawn(move || handle_stdin(keyboard_tx));
