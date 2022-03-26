@@ -1,6 +1,9 @@
-use std::io::Write;
+use std::collections::VecDeque;
+use std::io::{Read, Write};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 
 use anyhow::Result;
+use itertools::Itertools;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{Kvm, VcpuExit, VcpuFd, VmFd};
 use memmap2::MmapMut;
@@ -14,6 +17,9 @@ pub struct VirtualMachine {
     guest_mem: MmapMut,
 
     console_buffer: Vec<u8>,
+
+    keyboard_buffer: VecDeque<u8>,
+    keyboard_rx: Receiver<u8>,
 }
 
 impl VirtualMachine {
@@ -36,12 +42,17 @@ impl VirtualMachine {
         let vcpu_fd = vm_fd.create_vcpu(0)?;
         setup_regs(&vcpu_fd, guest_phys_addr)?;
 
+        let (keyboard_tx, keyboard_rx) = sync_channel(512);
+        std::thread::spawn(move || handle_stdin(keyboard_tx));
+
         Ok(Self {
             kvm_fd,
             vm_fd,
             vcpu_fd,
             guest_mem,
             console_buffer: Vec::new(),
+            keyboard_buffer: VecDeque::new(),
+            keyboard_rx,
         })
     }
 
@@ -51,9 +62,11 @@ impl VirtualMachine {
     }
 
     fn run_once(&mut self) -> Result<bool> {
+        self.process_keyboard_input();
         let vm_exit = self.vcpu_fd.run()?;
+        use VcpuExit::*;
         match vm_exit {
-            VcpuExit::IoOut(0x0042, data) => {
+            IoOut(0x0042, data) => {
                 for &byte in data {
                     self.console_buffer.push(byte);
                     if byte == b'\n' {
@@ -62,12 +75,28 @@ impl VirtualMachine {
                     }
                 }
             }
-            VcpuExit::IoIn(addr, data) => println!("io in {addr:x} {data:02x?}"),
-            VcpuExit::IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
-            VcpuExit::Hlt => return Ok(true),
+
+            IoIn(0x0044, data) => data[0] = *self.keyboard_buffer.front().unwrap_or(&0),
+
+            IoIn(0x0045, data) => data[0] = !self.keyboard_buffer.is_empty() as u8,
+            IoOut(0x0045, [0, ..]) => drop(self.keyboard_buffer.pop_front()),
+
+            IoIn(addr, data) => println!("io in {addr:x} {data:02x?}"),
+            IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
+            Hlt => return Ok(true),
             r => anyhow::bail!("Unexpected exit: {r:?}"),
         }
         Ok(false)
+    }
+
+    fn process_keyboard_input(&mut self) {
+        while let Ok(byte) = self.keyboard_rx.try_recv() {
+            if self.keyboard_buffer.len() < 64 {
+                self.keyboard_buffer.push_back(byte);
+            } else {
+                break;
+            }
+        }
     }
 }
 
@@ -103,4 +132,13 @@ fn setup_regs(vcpu: &VcpuFd, rip: u64) -> Result<()> {
     vcpu.set_regs(&regs)?;
 
     Ok(())
+}
+
+fn handle_stdin(tx: SyncSender<u8>) {
+    std::io::stdin()
+        .lock()
+        .bytes()
+        .map_while(Result::ok)
+        .map_while(move |byte| tx.send(byte).ok())
+        .collect()
 }
