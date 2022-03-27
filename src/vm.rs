@@ -36,7 +36,7 @@ impl VirtualMachine {
         let mut guest_mem = MmapMut::map_anon(mem_size)?;
         for section in obj.sections() {
             match section.kind() {
-                SectionKind::Text => {
+                SectionKind::Text | SectionKind::Data => {
                     let data = section
                         .compressed_data()
                         .map_err(|e| anyhow!("failed to get data: {e}"))?
