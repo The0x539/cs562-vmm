@@ -3,7 +3,13 @@ guest/guest.elf: guest/guest.S guest/guest.ld
 	ld -nostdlib -T guest/guest.ld -z max-page-size=0x1000 guest/guest.o -o guest/guest.elf
 
 guest: guest/guest.elf
-	
-all: guest
 
-.PHONY: guest
+vmm:
+	cargo build --release
+
+all: vmm guest
+
+run: vmm guest
+	target/release/vmm guest/guest.elf
+
+.PHONY: run vmm guest
