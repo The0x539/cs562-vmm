@@ -115,6 +115,7 @@ impl VirtualMachine {
         use VcpuExit::*;
         match vm_exit {
             IoOut(0x0042, data) => {
+                println!("{data:?}");
                 for &byte in data {
                     self.console_buffer.push(byte);
                     if byte == b'\n' {
@@ -124,7 +125,7 @@ impl VirtualMachine {
                 }
             }
 
-            IoIn(0x0044, data) => data[0] = *self.keyboard_buffer.front().unwrap_or(&0),
+            IoIn(0x0044, data) => data[0] = dbg!(*self.keyboard_buffer.front().unwrap_or(&0)),
 
             IoIn(0x0045, data) => data[0] = !self.keyboard_buffer.is_empty() as u8,
             IoOut(0x0045, [0, ..]) => drop(self.keyboard_buffer.pop_front()),
