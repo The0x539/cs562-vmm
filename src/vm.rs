@@ -19,6 +19,7 @@ pub struct VirtualMachine {
     vcpu_fd: VcpuFd,
 
     guest_mem: MmapMut,
+    stack_mem: MmapMut,
 
     console_buffer: Vec<u8>,
 
@@ -61,6 +62,16 @@ impl VirtualMachine {
         };
         unsafe { vm_fd.set_user_memory_region(mem_region)? };
 
+        let mut stack_mem = MmapMut::map_anon(mem_size)?;
+        let stack_region = kvm_userspace_memory_region {
+            slot: 1,
+            flags: Default::default(),
+            guest_phys_addr: mem_size as u64 + 0x1000, // one page past "guest_mem"
+            memory_size: mem_size as u64,
+            userspace_addr: stack_mem.as_mut_ptr() as u64,
+        };
+        unsafe { vm_fd.set_user_memory_region(stack_region)? };
+
         let vcpu_fd = vm_fd.create_vcpu(0)?;
         setup_regs(&vcpu_fd, obj.entry())?;
 
@@ -75,6 +86,7 @@ impl VirtualMachine {
             vm_fd,
             vcpu_fd,
             guest_mem,
+            stack_mem,
             console_buffer: Vec::new(),
             keyboard_buffer: VecDeque::new(),
             keyboard_rx,
