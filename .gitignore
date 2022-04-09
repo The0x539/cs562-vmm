@@ -1,3 +1,4 @@
 /target
 guest/guest.o
+guest/cguest.o
 guest/guest.elf

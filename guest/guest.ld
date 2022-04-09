@@ -6,12 +6,23 @@ SECTIONS
 {
     . = 0x1000;
     .text : {
-        *(.text)
+        guest.o(.text)
     }
     .data : {
-        *(.data)
+        guest.o(.data)
     }
     .bss : {
-        *(.bss)
+        guest.o(.bss)
+    }
+
+    . = 0x2000;
+    .text : {
+        cguest.o(.text)
+    }
+    .data : {
+        cguest.o(.data)
+    }
+    .bss : {
+        cguest.o(.bss)
     }
 }
