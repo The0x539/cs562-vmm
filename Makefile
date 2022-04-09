@@ -1,4 +1,10 @@
-.PHONY: run vmm guest
+.PHONY: run vmm guest clean
+
+all: vmm guest
+
+clean:
+	@rm -f guest/guest.o guest/cguest.o guest/guest.elf
+	@cargo clean
 
 guest/guest.elf: guest/guest.S guest/guest.ld
 	gcc -c -o guest/guest.o guest/guest.S
@@ -9,8 +15,6 @@ guest: guest/guest.elf
 
 vmm:
 	cargo build --release
-
-all: vmm guest
 
 run: vmm guest
 	target/release/vmm guest/guest.elf
