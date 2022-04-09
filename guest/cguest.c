@@ -31,10 +31,8 @@ void timer_enable(u16 millis) {
 bool wait_or_get_char(u8 *out) {
 	while (true) {
 		if (inb(0x45)) {
-			u8 ch = inb(0x44);
-			put_char(ch);
+			*out = inb(0x44);
 			outb(0x45, 0);
-			*out = ch;
 			return true;
 		} else if (inb(0x47) & 2) {
 			outb(0x47, 1);
@@ -59,12 +57,11 @@ void cmain() {
 	u8 idx = 0;
 
 	while (true) {
-		u8 ch = 0xFF;
+		u8 ch;
 		bool got_char = wait_or_get_char(&ch);
 		if (got_char) {
-			put_char(ch);
 			in_buf[idx++] = ch;
-			if (ch == '\0') {
+			if (ch == '\n') {
 				u8 *tmp = in_buf;
 				in_buf = out_buf;
 				out_buf = tmp;

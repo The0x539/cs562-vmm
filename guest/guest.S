@@ -4,16 +4,18 @@
 .globl _start
 _start:
     cli
-    mov $gdtr32, %eax
+    ;mov $gdtr32, %eax
     lgdt (%eax)
     mov %cr0, %eax
     or $1, %al
     mov %eax, %cr0
+    ;mov $0x0, %ax
+    ;mov %ss, %ax
     ljmp $0x8, $thirtytwo
 
 .code32
 thirtytwo:
-    mov $0x8000, %esp
+    mov $0x1000, %esp
     call cmain
 
 .section .data
