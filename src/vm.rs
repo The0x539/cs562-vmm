@@ -37,7 +37,8 @@ impl VirtualMachine {
         let mut guest_mem = MmapMut::map_anon(mem_size)?;
         for section in obj.sections() {
             match section.kind() {
-                SectionKind::Text | SectionKind::Data => {
+                // readonly schmeadonly
+                SectionKind::Text | SectionKind::Data | SectionKind::ReadOnlyData => {
                     let data = section
                         .compressed_data()
                         .map_err(|e| anyhow!("failed to get data: {e}"))?
@@ -48,8 +49,17 @@ impl VirtualMachine {
                     let size = section.size() as usize;
                     guest_mem[addr..][..size].copy_from_slice(&data);
                 }
-                SectionKind::Metadata | SectionKind::Note => (),
-                k => anyhow::bail!("Unsupported section kind: {k:?}"),
+                // things I have specifically run across and can get away with ignoring
+                SectionKind::Metadata
+                | SectionKind::Note
+                | SectionKind::ReadOnlyString
+                | SectionKind::OtherString => (),
+                k => {
+                    let name = section
+                        .name()
+                        .map_err(|e| anyhow!("malformed section name: {e}"))?;
+                    anyhow::bail!("Unsupported section kind: {k:?} (name: {name})");
+                }
             }
         }
 
