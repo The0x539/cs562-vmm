@@ -13,7 +13,7 @@ _start:
 
 .code32
 thirtytwo:
-    mov $0x8FFF, %esp
+    mov $0x8000, %esp
     call cmain
 
 .section .data
