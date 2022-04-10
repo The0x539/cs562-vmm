@@ -2,6 +2,7 @@
 #![no_main]
 
 mod console;
+mod event;
 mod io;
 mod keyboard;
 mod timer;
@@ -9,6 +10,8 @@ mod timer;
 use core::arch::asm;
 
 use tinyvec::ArrayVec;
+
+use event::Event;
 
 #[no_mangle]
 pub extern "C" fn rsmain() {
@@ -18,8 +21,8 @@ pub extern "C" fn rsmain() {
     let mut buf_b = ArrayVec::from_array_empty([0; 64]);
     let (mut in_buf, mut out_buf) = (&mut buf_a, &mut buf_b);
 
-    loop {
-        if let Some(c) = keyboard::poll() {
+    event::run_loop(|event| match event {
+        Event::Keyboard(c) => {
             // if the buffer is full just trample the last byte
             if in_buf.len() == in_buf.capacity() {
                 in_buf.pop();
@@ -30,10 +33,9 @@ pub extern "C" fn rsmain() {
                 core::mem::swap(&mut in_buf, &mut out_buf);
                 in_buf.clear();
             }
-        } else if timer::poll() {
-            console::print(&out_buf);
         }
-    }
+        Event::Tick => console::print(&out_buf),
+    });
 }
 
 #[panic_handler]
