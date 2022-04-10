@@ -34,9 +34,10 @@ impl VirtualMachine {
 
         let mut guest_mem = MmapMut::map_anon(mem_size)?;
         for section in obj.sections() {
+            use SectionKind::*;
             match section.kind() {
                 // readonly schmeadonly
-                SectionKind::Text | SectionKind::Data | SectionKind::ReadOnlyData => {
+                Text | Data | ReadOnlyData => {
                     let data = section
                         .compressed_data()
                         .map_err(|e| anyhow!("failed to get data: {e}"))?
@@ -48,10 +49,7 @@ impl VirtualMachine {
                     guest_mem[addr..][..size].copy_from_slice(&data);
                 }
                 // things I have specifically run across and can get away with ignoring
-                SectionKind::Metadata
-                | SectionKind::Note
-                | SectionKind::ReadOnlyString
-                | SectionKind::OtherString => (),
+                Metadata | Note | ReadOnlyString | OtherString | Other => (),
                 k => {
                     let name = section
                         .name()
@@ -126,7 +124,10 @@ impl VirtualMachine {
             IoOut(addr, data) => println!("io out {addr:x} {data:02x?}"),
             Hlt => return Ok(true),
             Debug(_) => {}
-            r => anyhow::bail!("Unexpected exit: {r:?}"),
+            r => anyhow::bail!(
+                "Unexpected exit: {r:?} rip={:x}",
+                self.vcpu_fd.get_regs()?.rip
+            ),
         }
         Ok(false)
     }

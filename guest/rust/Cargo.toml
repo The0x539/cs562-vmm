@@ -17,3 +17,4 @@ lto = "fat"
 crate-type = ["staticlib"]
 
 [dependencies]
+tinyvec = "1.5.1"
