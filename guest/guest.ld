@@ -25,15 +25,4 @@ SECTIONS
     .bss : {
         librsguest.a(.bss)
     }
-
-    . = 0x3000;
-    .text : {
-        cguest.o(.text)
-    }
-    .data : {
-        cguest.o(.data)
-    }
-    .bss : {
-        cguest.o(.bss)
-    }
 }

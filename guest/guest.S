@@ -15,6 +15,15 @@ _start:
 
 .code32
 thirtytwo:
+    mov %cr0, %eax
+    and $0xFFFB, %ax    // clear EM
+    or $0x2, %ax        // set MP
+    mov %eax, %cr0
+
+    mov %cr4, %eax
+    or $(3 << 9), %eax // set OSFXSR and OSXMMEXCEPT
+    mov %eax, %cr4
+
     mov $0x1000, %esp
     call rsmain
 
