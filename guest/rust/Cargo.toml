@@ -1,0 +1,19 @@
+[package]
+name = "rsguest"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+debug = 0
+strip = "debuginfo"
+lto = "fat"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]

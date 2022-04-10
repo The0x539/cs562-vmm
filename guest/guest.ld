@@ -17,12 +17,12 @@ SECTIONS
 
     . = 0x2000;
     .text : {
-        cguest.o(.text)
+        librsguest.a(.text)
     }
     .data : {
-        cguest.o(.data)
+        librsguest.a(.data)
     }
     .bss : {
-        cguest.o(.bss)
+        librsguest.a(.bss)
     }
 }

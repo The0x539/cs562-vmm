@@ -2,3 +2,4 @@
 guest/guest.o
 guest/cguest.o
 guest/guest.elf
+guest/rust/target

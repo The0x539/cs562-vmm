@@ -16,7 +16,7 @@ _start:
 .code32
 thirtytwo:
     mov $0x1000, %esp
-    call cmain
+    call rsmain
 
 .section .data
 
