@@ -1,7 +1,6 @@
-RUST_GUEST_PATH=guest/rust
 RUST_TARGET_PLATFORM=i686-unknown-linux-gnu
-RUST_GUEST_MANIFEST=$(RUST_GUEST_PATH)/Cargo.toml
-RUST_GUEST_ARTIFACTS=$(RUST_GUEST_PATH)/target/$(RUST_TARGET_PLATFORM)/release
+RUST_GUEST_MANIFEST=guest/Cargo.toml
+RUST_GUEST_ARTIFACTS=guest/target/$(RUST_TARGET_PLATFORM)/release
 
 .PHONY: run vmm rsguest guest clean
 
@@ -9,7 +8,7 @@ all: vmm guest
 
 clean:
 	@rm -f guest/guest.o guest/guest.elf
-	@cd $(RUST_GUEST_PATH); cargo clean
+	@cd guest; cargo clean
 	@cargo clean
 
 rsguest:
