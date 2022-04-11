@@ -1,0 +1,3 @@
+you will need an ordinary Rust setup, plus the i686-unknown-linux-gnu target to build the guest.
+once that's taken care of, `make run` should do the trick.
+the host just takes a command-line arg specifying an ELF file, and the host behaves as specified, using an arbitrarily-chosen 750ms timeout.
