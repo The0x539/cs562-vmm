@@ -43,7 +43,7 @@ impl Timer {
         self.cv.notify_all();
     }
 
-    fn run(&self) {
+    fn run(&self) -> ! {
         loop {
             std::thread::sleep(self.interval());
 
